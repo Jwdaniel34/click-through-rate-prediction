@@ -50,3 +50,15 @@ y_pred = model.predict_proba(X_test)[:, 1]
 
 auc = roc_auc_score(y_test, y_pred)
 print(f"AUC Score: {auc:.4f}")
+
+import shap
+
+
+
+X_sample = X_test.sample(200, random_state=42)
+# ✅ Use shap.TreeExplainer for tree-based models like XGBoost
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_sample)
+
+# ✅ Summary plot
+shap.summary_plot(shap_values, X_sample)
