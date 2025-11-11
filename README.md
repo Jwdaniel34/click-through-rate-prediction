@@ -59,6 +59,7 @@ The goal is to showcase practical experience with **data preprocessing, model tr
 * Key predictive features: `banner_pos`, `device_type`, `hourofday`, and `site_category`.
 * Model interpretability added with SHAP for transparency and governance.
 
+SHAP summary plot showing feature importance for click-through prediction.
 
 ![SHAP Summary Plot](images/shap_mean.png)
 ![SHAP Summary Plot](images/shap_value.png)
