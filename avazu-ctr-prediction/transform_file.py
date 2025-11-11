@@ -1,40 +1,69 @@
+# ==========================================================
+# IMPORT LIBRARIES
+# ==========================================================
 import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
+import xgboost as xgb
+import shap
+import warnings
+warnings.filterwarnings("ignore")
 
-train = pd.read_csv('/Users/john/PycharmProjects/click-through-rate-prediction/avazu-ctr-prediction/train.gz', compression='gzip', nrows=100000)
-test = pd.read_csv('/Users/john/PycharmProjects/click-through-rate-prediction/avazu-ctr-prediction/test.gz', compression='gzip', nrows=100000)
+# ==========================================================
+# LOAD DATA (LIMIT TO 100K ROWS FOR SPEED)
+# ==========================================================
+train = pd.read_csv(
+    '/Users/john/PycharmProjects/click-through-rate-prediction/avazu-ctr-prediction/train.gz',
+    compression='gzip',
+    nrows=100000
+)
+test = pd.read_csv(
+    '/Users/john/PycharmProjects/click-through-rate-prediction/avazu-ctr-prediction/test.gz',
+    compression='gzip',
+    nrows=100000
+)
 
 print("Train columns:", train.columns.tolist())
 print("Train shape:", train.shape)
 print(train.head())
 
+# ==========================================================
+# FEATURE ENGINEERING
+# ==========================================================
 df = train.copy()
 
-df['hour'] = pd.to_datetime(df['hour'], format='%y%m%d%H')
+# Convert hour to datetime
+df['hour'] = pd.to_datetime(df['hour'], format='%y%m%d%H', errors='coerce')
+
+# Extract time-based features
 df['dayofweek'] = df['hour'].dt.dayofweek
 df['hourofday'] = df['hour'].dt.hour
-print(df[['device_ip', 'device_id']])
-df.drop(columns=['hour', 'id', 'device_ip', 'device_id'], inplace=True)
 
-print(df)
+# Drop high-cardinality or identifier columns
+df.drop(columns=['hour', 'id', 'device_ip', 'device_id'], inplace=True, errors='ignore')
 
-from sklearn.preprocessing import LabelEncoder
-
+# ==========================================================
+# ENCODE CATEGORICAL VARIABLES
+# ==========================================================
 for col in df.columns:
     if df[col].dtype == 'object':
-        print(col)
         df[col] = LabelEncoder().fit_transform(df[col].astype(str))
 
-from sklearn.model_selection import train_test_split
-
+# ==========================================================
+# TRAIN-TEST SPLIT
+# ==========================================================
 X = df.drop('click', axis=1)
-print(X)
 y = df['click']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
-import xgboost as xgb
-from sklearn.metrics import roc_auc_score
-
+# ==========================================================
+# MODEL TRAINING WITH XGBOOST
+# ==========================================================
 model = xgb.XGBClassifier(
     n_estimators=100,
     learning_rate=0.1,
@@ -42,23 +71,50 @@ model = xgb.XGBClassifier(
     subsample=0.8,
     colsample_bytree=0.8,
     eval_metric='auc',
-    random_state=42
+    random_state=42,
+    use_label_encoder=False
 )
 
 model.fit(X_train, y_train)
-y_pred = model.predict_proba(X_test)[:, 1]
 
+# ==========================================================
+# EVALUATION
+# ==========================================================
+y_pred = model.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, y_pred)
 print(f"AUC Score: {auc:.4f}")
 
-import shap
+# ==========================================================
+# CLEAN NUMERIC STRINGS (SAFETY STEP FOR SHAP)
+# ==========================================================
+def clean_numeric_strings(df):
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            df[col] = (
+                df[col]
+                .astype(str)
+                .str.replace(r'[\[\]]', '', regex=True)
+                .str.strip()
+            )
+            df[col] = pd.to_numeric(df[col], errors='ignore')
+    return df
 
+X_train = clean_numeric_strings(X_train)
+X_test = clean_numeric_strings(X_test)
 
-
+# ==========================================================
+# SHAP EXPLAINABILITY
+# ==========================================================
+# Sample subset for faster computation
 X_sample = X_test.sample(200, random_state=42)
-# ✅ Use shap.TreeExplainer for tree-based models like XGBoost
-explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_sample)
 
-# ✅ Summary plot
-shap.summary_plot(shap_values, X_sample)
+
+# ✅ Use a prediction function explicitly instead of the model object
+explainer = shap.Explainer(model.predict_proba, X_sample)
+
+# Compute SHAP values (for the "clicked" class = 1)
+shap_values = explainer(X_sample)
+
+# Summary plots
+shap.summary_plot(shap_values[..., 1], X_sample)
+shap.summary_plot(shap_values[..., 1], X_sample, plot_type="bar")
