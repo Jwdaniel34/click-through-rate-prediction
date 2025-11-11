@@ -60,4 +60,9 @@ The goal is to showcase practical experience with **data preprocessing, model tr
 * Model interpretability added with SHAP for transparency and governance.
 
 
+![SHAP Summary Plot](images/shap_mean.png)
+![SHAP Summary Plot](images/shap_value.png)
+
+
+
 
