@@ -1,15 +1,3 @@
-Perfect timing — this is a *fantastic move* before your interview. Sending a short, professional email with a project demo and a clear README shows initiative, technical capability, and communication skill — exactly what hiring managers at Cadent love.
-
-Let’s do this in two parts:
-
----
-
-## 🧾 PART 1: README Template (for your GitHub or project folder)
-
-Here’s a polished README you can copy and edit slightly for your repository or zip folder:
-
----
-
 # Click-Through Rate (CTR) Prediction — Demo Project
 
 ### 🚀 Overview
